@@ -297,6 +297,38 @@ export async function setupCaddyLoadBalancer({
 	}
 }
 
+/**
+ * Polls a container's HTTP endpoint until it returns a 200 status.
+ * Logs a warning if the endpoint does not return 200 within the specified timeout.
+ *
+ * @param container The started container.
+ * @param endpoint The HTTP health check endpoint (e.g., '/healthz/readiness').
+ * @param timeoutMs Total timeout in milliseconds (default: 60,000ms).
+ */
+export async function pollContainerHttpEndpoint(
+	container: StartedTestContainer,
+	endpoint: string,
+	timeoutMs: number = 60000,
+): Promise<void> {
+	const startTime = Date.now();
+	const url = `http://${container.getHost()}:${container.getFirstMappedPort()}${endpoint}`;
+	const retryIntervalMs = 1000;
+
+	while (Date.now() - startTime < timeoutMs) {
+		const response = await fetch(url);
+		if (response.status === 200) {
+			return;
+		}
+		await new Promise((resolve) => setTimeout(resolve, retryIntervalMs));
+	}
+
+	console.error(
+		`WARNING: HTTP endpoint at ${url} did not return 200 within ${
+			timeoutMs / 1000
+		} seconds. Proceeding with caution.`,
+	);
+}
+
 // TODO: Look at Ollama container?
 // TODO: Look at MariaDB container?
 // TODO: Look at MockServer container, could we use this for mocking out external services?
